@@ -2,7 +2,10 @@
 ```
 python3 -m pip install -r requirements.txt
 ```
-For validation, might need to install [xmllint](https://linux.die.net/man/1/xmllint) if not on a Mac or Ubuntu machine.
+For validation, might need to install [xmllint](https://linux.die.net/man/1/xmllint).
+```
+sudo apt install libxml2-utils
+```
 Download the v2.0 schema locally
 ```bash
 curl -o schema_2_0.xsd https://raw.githubusercontent.com/BuildingSync/schema/v2.0/BuildingSync.xsd
