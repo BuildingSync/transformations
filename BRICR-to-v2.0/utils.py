@@ -102,3 +102,22 @@ def fix_namespaces(tree):
     clone_subtree(original_root, new_root)
 
     return new_tree
+
+
+def add_child_to_element(element, child, tree, schema):
+    element.append(child)
+    sort_element(schema, tree, element)
+
+
+def add_udfs(element, udfs):
+    # get or create the udf container
+    udf_container = element.xpath('auc:UserDefinedFields', namespaces=NAMESPACES)
+    if udf_container:
+        udf_container = udf_container[0]
+    else:
+        udf_container = etree.SubElement(element, f'{{{BUILDINGSYNC_URI}}}UserDefinedFields')
+    # add the fields
+    for udf_raw in udfs:
+        udf_elem = etree.SubElement(udf_container, f'{{{BUILDINGSYNC_URI}}}UserDefinedField')
+        etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldName').text = udf_raw[0]
+        etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldValue').text = udf_raw[1]
