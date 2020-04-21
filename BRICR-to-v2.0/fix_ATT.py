@@ -58,7 +58,7 @@ def fix_file(source, save_dir):
 
     # -- Edit Measures
     # add measuresavingsanalysis and some udfs
-    measure_udf_raw = [["Rebate Available", "true"]]
+    measure_udf_raw = [["Rebate Available", "false"]]
     measure_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Measures/auc:Measure'
     measures = tree.xpath(measure_xpath, namespaces=NAMESPACES)
     for measure_element in measures:
@@ -73,8 +73,8 @@ def fix_file(source, save_dir):
 
     # -- Edit Scenarios
     # change electricity units to kWh, gas to therms
-    electricity_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Electricity"]/auc:ResourceUnits'
-    gas_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Natural gas"]/auc:ResourceUnits'
+    electricity_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Electricity"]/auc:ResourceUnits[text()="kBtu"]'
+    gas_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Natural gas"]/auc:ResourceUnits[text()="kBtu"]'
 
     for electricity_units in tree.xpath(electricity_savings_xpath, namespaces=NAMESPACES):
         electricity_units.text = 'kWh'
