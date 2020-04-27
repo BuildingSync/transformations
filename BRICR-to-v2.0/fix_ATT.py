@@ -1,6 +1,7 @@
 import os
 from io import StringIO
 import glob
+import traceback
 
 from lxml import etree
 from xmlschema import XMLSchema
@@ -55,6 +56,17 @@ def fix_file(source, save_dir):
         report_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report'
         report_element = tree.xpath(report_xpath, namespaces=NAMESPACES)[0]
         add_child_to_element(report_element, lps_elem, tree, schema)
+
+    # make sure address is in Buildings/Building
+    building_address_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:Address'
+    building_address_elem = tree.xpath(building_address_xpath, namespaces=NAMESPACES)
+    if not building_address_elem:
+        site_address_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Address'
+        site_address_elem = tree.xpath(site_address_xpath, namespaces=NAMESPACES)[0]
+        site_address_elem.getparent().remove(site_address_elem)
+        building_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building'
+        building_elem = tree.xpath(building_xpath, namespaces=NAMESPACES)[0]
+        add_child_to_element(building_elem, site_address_elem, tree, schema)
 
     # -- Edit Measures
     # add measuresavingsanalysis and some udfs
@@ -112,10 +124,16 @@ def fix_file(source, save_dir):
     tree.xpath(site_xpath, namespaces=NAMESPACES)[0].set('ID', 'SiteID')
 
     # IdentifierLabel for Assessor parcel number must be Custom
-    assessor_label_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:PremisesIdentifiers/auc:PremisesIdentifier[auc:IdentifierLabel="Assessor parcel number"]/auc:IdentifierValue'
-    assessor_label_elem = tree.xpath(assessor_label_xpath, namespaces=NAMESPACES)
-    if assessor_label_elem:
-        assessor_label_elem[0].text = 'Custom'
+    premise_id_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:PremisesIdentifiers/auc:PremisesIdentifier[auc:IdentifierLabel="Assessor parcel number"]'
+    premise_id_elem = tree.xpath(premise_id_xpath, namespaces=NAMESPACES)
+    if premise_id_elem:
+        premise_id_elem = premise_id_elem[0]
+        id_name = etree.Element(f'{{{BUILDINGSYNC_URI}}}IdentifierCustomName')
+        id_name.text = 'Assessor parcel number'
+        add_child_to_element(premise_id_elem, id_name, tree, schema)
+        # change IdentifierLabel to custom
+        id_label = premise_id_elem.xpath('auc:IdentifierLabel', namespaces=NAMESPACES)
+        id_label[0].text = 'Custom'
 
     # add ID to package of measures (required)
     pom_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures'
@@ -154,10 +172,17 @@ def fix_file(source, save_dir):
     etree.SubElement(pid_elem, f'{{{BUILDINGSYNC_URI}}}IdentifierValue').text = '18749'
     add_child_to_element(site_elem, pids_elem, tree, schema)
 
-    # fix the Section type
-    st_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:Sections/auc:Section/auc:SectionType'
-    st_elem = tree.xpath(st_xpath, namespaces=NAMESPACES)
-    st_elem[0].text = 'Space function'
+    # fix the Section type so the type is Space function
+    section_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:Sections/auc:Section'
+    section_elem = tree.xpath(section_xpath, namespaces=NAMESPACES)[0]
+    type_xpath = 'auc:SectionType'
+    type_elem = section_elem.xpath(type_xpath, namespaces=NAMESPACES)
+    if type_elem:
+        type_elem[0].text = 'Space function'
+    else:
+        type_elem = etree.Element(f'{{{BUILDINGSYNC_URI}}}SectionType')
+        type_elem.text = 'Space function'
+        add_child_to_element(section_elem, type_elem, tree, schema)
 
     # -- SAVE THE RESULT!
     result = etree.tostring(tree, pretty_print=True).decode()
@@ -193,4 +218,5 @@ if __name__ == '__main__':
             fix_file(bsync_file, save_dir)
         except Exception as e:
             print(f'\nUnexpected error processing {bsync_file}: {str(e)}')
+            print(traceback.format_exc())
         print('.', end='', flush=True)
