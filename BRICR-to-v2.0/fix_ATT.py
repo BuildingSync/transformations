@@ -68,6 +68,30 @@ def fix_file(source, save_dir):
         building_elem = tree.xpath(building_xpath, namespaces=NAMESPACES)[0]
         add_child_to_element(building_elem, site_address_elem, tree, schema)
 
+    # move FloorsAboveGrade and FloorsBelowGrade to ConditionedFloorsAboveGrade and ConditionedFloorsBelowGrade
+    above_grade_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:FloorsAboveGrade'
+    above_grade_elem = tree.xpath(above_grade_xpath, namespaces=NAMESPACES)
+    if above_grade_elem:
+        above_grade_elem = above_grade_elem[0]
+        n_floors = above_grade_elem.text
+        building_elem = above_grade_elem.getparent()
+        building_elem.remove(above_grade_elem)
+        conditioned_above_grade_elem = etree.Element(f'{{{BUILDINGSYNC_URI}}}ConditionedFloorsAboveGrade')
+        conditioned_above_grade_elem.text = n_floors
+        add_child_to_element(building_elem, conditioned_above_grade_elem, tree, schema)
+
+    below_grade_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:FloorsBelowGrade'
+    below_grade_elem = tree.xpath(below_grade_xpath, namespaces=NAMESPACES)
+    if below_grade_elem:
+        below_grade_elem = below_grade_elem[0]
+        n_floors = below_grade_elem.text
+        building_elem = below_grade_elem.getparent()
+        building_elem.remove(below_grade_elem)
+        conditioned_below_grade_elem = etree.Element(f'{{{BUILDINGSYNC_URI}}}ConditionedFloorsBelowGrade')
+        conditioned_below_grade_elem.text = n_floors
+        add_child_to_element(building_elem, conditioned_below_grade_elem, tree, schema)
+
+
     # -- Edit Measures
     # add measuresavingsanalysis and some udfs
     measure_udf_raw = [["Rebate Available", "false"]]
@@ -84,6 +108,13 @@ def fix_file(source, save_dir):
 
 
     # -- Edit Scenarios
+    # check that ResourceUnits are in kBtu
+    resource_units_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel/auc:ResourceUnits'
+    resource_units_elems = tree.xpath(resource_units_xpath, namespaces=NAMESPACES)
+    for ru_elem in resource_units_elems:
+        if ru_elem.text != 'kBtu':
+            raise Exception(f'Expected all ResourceUses to be kBtu, but found one with "{ru_elem.text}"')
+
     # change electricity units to kWh, gas to therms
     electricity_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Electricity"]/auc:ResourceUnits[text()="kBtu"]'
     gas_savings_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures/auc:AnnualSavingsByFuels/auc:AnnualSavingsByFuel[auc:EnergyResource="Natural gas"]/auc:ResourceUnits[text()="kBtu"]'
@@ -111,9 +142,50 @@ def fix_file(source, save_dir):
         pom_elem = scenario_element.xpath('auc:ScenarioType/auc:PackageOfMeasures', namespaces=NAMESPACES)[0]
         add_child_to_element(pom_elem, aper_elem, tree, schema)
 
-        udfs = [["Recommended Resource Savings Category", "Potential Capital Recommendations"]]
+        udfs = [
+            ["Application Scale", "Entire facility"],
+            ["Recommended Resource Savings Category", "Potential Capital Recommendations"]
+        ]
         add_udfs(scenario_element, udfs)
 
+    # add a special scenario so we don't loose all of our scenario information
+    building_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building'
+    building_id = tree.xpath(building_xpath, namespaces=NAMESPACES)[0].get('ID')
+    new_scenario_text = """<auc:Scenario ID="ScenarioType-69870486597440" xmlns:auc="http://buildingsync.net/schemas/bedes-auc/2019">
+  <auc:TemporalStatus>Current</auc:TemporalStatus>
+  <auc:ScenarioType>
+    <auc:Other></auc:Other>
+  </auc:ScenarioType>
+  <auc:ResourceUses>
+    <auc:ResourceUse ID="ResourceUseType-69870486534900">
+      <auc:EnergyResource>Electricity</auc:EnergyResource>
+      <auc:ResourceBoundary>Site</auc:ResourceBoundary>
+      <auc:ResourceUnits>kWh</auc:ResourceUnits>
+      <auc:EndUse>All end uses</auc:EndUse>
+    </auc:ResourceUse>
+    <auc:ResourceUse ID="ResourceUseType-69870486438520">
+      <auc:EnergyResource>Natural gas</auc:EnergyResource>
+      <auc:ResourceBoundary>Site</auc:ResourceBoundary>
+      <auc:ResourceUnits>therms</auc:ResourceUnits>
+      <auc:EndUse>All end uses</auc:EndUse>
+    </auc:ResourceUse>
+  </auc:ResourceUses>
+  <auc:LinkedPremises>
+    <auc:Building>
+      <auc:LinkedBuildingID IDref="{building_id}"></auc:LinkedBuildingID>
+    </auc:Building>
+  </auc:LinkedPremises>
+  <auc:UserDefinedFields>
+    <auc:UserDefinedField>
+      <auc:FieldName>Other Scenario Type</auc:FieldName>
+      <auc:FieldValue>Audit Template Available Energy</auc:FieldValue>
+    </auc:UserDefinedField>
+  </auc:UserDefinedFields>
+</auc:Scenario>""".format(building_id=building_id)
+    new_scenario_tree = etree.fromstring(new_scenario_text)
+    scenarios_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios'
+    scenarios_elem = tree.xpath(scenarios_xpath, namespaces=NAMESPACES)[0]
+    add_child_to_element(scenarios_elem, new_scenario_tree, tree, schema)
 
     # -- NY Use Case Changes
     # add ID to Facility and Site
@@ -123,13 +195,13 @@ def fix_file(source, save_dir):
     site_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site'
     tree.xpath(site_xpath, namespaces=NAMESPACES)[0].set('ID', 'SiteID')
 
-    # IdentifierLabel for Assessor parcel number must be Custom
+    # IdentifierLabel for Assessor parcel number must be changed to Custom ID 2
     premise_id_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:PremisesIdentifiers/auc:PremisesIdentifier[auc:IdentifierLabel="Assessor parcel number"]'
     premise_id_elem = tree.xpath(premise_id_xpath, namespaces=NAMESPACES)
     if premise_id_elem:
         premise_id_elem = premise_id_elem[0]
         id_name = etree.Element(f'{{{BUILDINGSYNC_URI}}}IdentifierCustomName')
-        id_name.text = 'Assessor parcel number'
+        id_name.text = 'Custom ID 2'
         add_child_to_element(premise_id_elem, id_name, tree, schema)
         # change IdentifierLabel to custom
         id_label = premise_id_elem.xpath('auc:IdentifierLabel', namespaces=NAMESPACES)

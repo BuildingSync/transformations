@@ -1,13 +1,37 @@
+## Known Issues
+After transforming the files they will be usable with Audit Template Tool. During the transformation, some data is shuffled around. Also, when importing and exporting from ATT some data could be lost. Below are the known changes/data losses.
+
+- ATT changes IDs of elements on import. Since SEED uses an ID for `Property Name`, so don't expect it to stay the same after updating a property with a file exported from ATT
+- During the transformation, the Assessor parcel number PremiseIdentifier is moved into Custom ID 2
+- During the transformation, we convert Electricity units to kWh and Natural Gas units to therms
+- During the transformation, we move `FloorsAboveGrade` and `FloorsBelowGrade` into `ConditionedFloorsAboveGrade` and `ConditionedFloorsBelowGrade`
+- Scenario data is dropped after importing and exporting from ATT:
+  - Scenario/ResourceUses
+  - Scenario/TimeSeriesData
+  - Scenario/AllResourceTotals
+  - Scenario/ScenarioType/ReferenceCase
+  - Scenario/ScenarioType/CalculationMethod
+  - Scenario/AnnualSavingsSiteEnergy
+  - Scenario/AnnualSavingsSourceEnergy
+
+Please see the comments in fix_2_0.py and fix_ATT.py for all transformations made.
+
 ## Setup
-```
-python3 -m pip install -r requirements.txt
-```
-For validation, might need to install [xmllint](https://linux.die.net/man/1/xmllint).
-```
-sudo apt install libxml2-utils
-```
-Download the v2.0 schema locally
+These are the steps for setting up a barebones ubuntu machine for running the transformations.
 ```bash
+# install some packages
+# libxml2-utils provides xmllint which is required for schema validation
+apt update && apt install git libxml2-utils python3.6 \
+    python3-pip curl
+
+# clone the repo
+git clone https://github.com/BuildingSync/transformations.git && \
+    cd transformations/BRICR-to-v2.0
+
+# install python deps
+python3.6 -m pip install -r requirements.txt
+
+# download the schema locally
 curl -o schema_2_0.xsd https://raw.githubusercontent.com/BuildingSync/schema/v2.0/BuildingSync.xsd
 ```
 ## Steps
@@ -16,6 +40,7 @@ Overview:
 - using those errors, fix the files
 - validate the fixed files
 - tweak the files to improve compatibility with Audit Template Tool
+- chown the final directory of fixed files as necessary
 - replace the original files with the fixed files
 
 ### Fixing schema version
@@ -80,3 +105,14 @@ Tweak the fixed files for Audit Template Tool by running the python script. Sinc
 # same name but with '_ATT' appended. e.g. ./foo/bar files go to ./foo/bar_ATT
 python3 fix_ATT.py <path to files>/backup/media/buildingsync_files_fixed
 ```
+
+### Wrapping it up
+The final files should now be in the buildingsync_files_fixed_ATT directory. chown the directory and files so the django process has access:
+```bash
+# use whatever UID you need here
+# you can figure out this UID by calling stat on the original buildingsync_files directory
+chown -R 1000 buildingsync_files_fixed_ATT
+```
+Move the original directory somewhere else, `mv buildingsync_files buildingsync_files_orig`, then `mv buildingsync_files_fixed_ATT buildingsync_files`.
+
+Verify you're able to upload, download etc from the server using the web app, then backup the original files somehow and remove the original directory as well as buildingsync_files_fixed.
