@@ -195,13 +195,20 @@ def fix_file(source, save_dir):
     site_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site'
     tree.xpath(site_xpath, namespaces=NAMESPACES)[0].set('ID', 'SiteID')
 
-    # IdentifierLabel for Assessor parcel number must be changed to Custom ID 2
+    # IdentifierLabel for Assessor parcel number must be changed to City Custom Building ID
+    # first remove any existing City Custom Building ID
+    existing_custom_id_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:PremisesIdentifiers/auc:PremisesIdentifier[auc:IdentifierCustomName="City Custom Building ID"]'
+    existing_custom_id_elem = tree.xpath(existing_custom_id_xpath, namespaces=NAMESPACES)
+    if existing_custom_id_elem:
+        existing_custom_id_elem = existing_custom_id_elem[0]
+        existing_custom_id_elem.getparent().remove(existing_custom_id_elem)
+    # Now change assessor parcel number to custom building id
     premise_id_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Sites/auc:Site/auc:Buildings/auc:Building/auc:PremisesIdentifiers/auc:PremisesIdentifier[auc:IdentifierLabel="Assessor parcel number"]'
     premise_id_elem = tree.xpath(premise_id_xpath, namespaces=NAMESPACES)
     if premise_id_elem:
         premise_id_elem = premise_id_elem[0]
         id_name = etree.Element(f'{{{BUILDINGSYNC_URI}}}IdentifierCustomName')
-        id_name.text = 'Custom ID 2'
+        id_name.text = 'City Custom Building ID'
         add_child_to_element(premise_id_elem, id_name, tree, schema)
         # change IdentifierLabel to custom
         id_label = premise_id_elem.xpath('auc:IdentifierLabel', namespaces=NAMESPACES)
