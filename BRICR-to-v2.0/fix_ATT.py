@@ -213,6 +213,9 @@ def fix_file(source, save_dir):
         # change IdentifierLabel to custom
         id_label = premise_id_elem.xpath('auc:IdentifierLabel', namespaces=NAMESPACES)
         id_label[0].text = 'Custom'
+        # strip the SF prefix
+        id_value = premise_id_elem.xpath('auc:IdentifierValue', namespaces=NAMESPACES)
+        id_value[0].text = id_value[0].text.lstrip('SF')
 
     # add ID to package of measures (required)
     pom_xpath = '/auc:BuildingSync/auc:Facilities/auc:Facility/auc:Reports/auc:Report/auc:Scenarios/auc:Scenario/auc:ScenarioType/auc:PackageOfMeasures'
