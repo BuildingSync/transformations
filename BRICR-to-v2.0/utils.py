@@ -118,6 +118,12 @@ def add_udfs(element, udfs):
         udf_container = etree.SubElement(element, f'{{{BUILDINGSYNC_URI}}}UserDefinedFields')
     # add the fields
     for udf_raw in udfs:
-        udf_elem = etree.SubElement(udf_container, f'{{{BUILDINGSYNC_URI}}}UserDefinedField')
-        etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldName').text = udf_raw[0]
-        etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldValue').text = udf_raw[1]
+        # first check if the udf field is already defined (in this case just update the value)
+        existing_udf_value = udf_container.xpath(f'auc:UserDefinedField[auc:FieldName="{udf_raw[0]}"]/auc:FieldValue', namespaces=NAMESPACES)
+        if existing_udf_value:
+            existing_udf_value[0].text = udf_raw[1]
+        else:
+            # create the udf
+            udf_elem = etree.SubElement(udf_container, f'{{{BUILDINGSYNC_URI}}}UserDefinedField')
+            etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldName').text = udf_raw[0]
+            etree.SubElement(udf_elem, f'{{{BUILDINGSYNC_URI}}}FieldValue').text = udf_raw[1]
