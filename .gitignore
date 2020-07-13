@@ -1,2 +1,4 @@
 __pycache__
 **/*.xsd
+.idea
+.python-version
