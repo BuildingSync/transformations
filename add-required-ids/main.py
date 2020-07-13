@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     # Load in schema and get location to example files
     schema_path = os.path.realpath("../../schema")
+    assert os.path.isdir(schema_path), "The 'schema' directory must exist at the same level as the 'transformations' directory, i.e. parent_dir/schema; parent_dir/transformations"
     schema = XMLSchema(os.path.join(schema_path, "BuildingSync.xsd"))
 
     # very nice function - XPath in Schema file
